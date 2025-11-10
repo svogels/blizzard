@@ -6,6 +6,8 @@
     <title>Case Study Activities: Blizzard</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load jsPDF for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         /* Use Inter font */
         body {
@@ -15,6 +17,24 @@
         :focus-visible {
             outline: 2px solid #3b82f6;
             outline-offset: 2px;
+        }
+        /* Print styles - allow text areas to break across pages */
+        @media print {
+            textarea {
+                page-break-inside: auto;
+                break-inside: auto;
+                overflow: visible;
+                height: auto !important;
+                border: 1px solid #d1d5db;
+                white-space: pre-wrap;
+            }
+            section {
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+            .no-print {
+                display: none !important;
+            }
         }
     </style>
 </head>
@@ -214,6 +234,17 @@
 
         </main>
 
+        <!-- Download PDF Button Section -->
+        <div class="p-6 bg-gray-50 border-t border-gray-200">
+            <button id="download-pdf" class="w-full bg-purple-600 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-150 flex items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Download My Answers as PDF
+            </button>
+            <p class="text-sm text-gray-600 text-center mt-2">Save your quiz answers and written responses</p>
+        </div>
+
         <!-- Footer -->
         <footer class="bg-gray-800 text-gray-400 text-center p-4">
             <p>&copy; 2025 Interactive Case Study. Content based on user-provided text.</p>
@@ -305,6 +336,94 @@
 
         setupSaveButton('save-scavenger', 'scavenger-feedback');
         setupSaveButton('save-reflection', 'reflection-feedback');
+
+        // PDF Download functionality
+        const downloadPdfButton = document.getElementById('download-pdf');
+        
+        downloadPdfButton.addEventListener('click', function() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            let yPosition = 20;
+            const pageHeight = doc.internal.pageSize.height;
+            const marginBottom = 20;
+            const lineHeight = 7;
+            const maxWidth = 170;
+            
+            // Helper function to add text with page breaks
+            function addText(text, fontSize = 12, isBold = false) {
+                doc.setFontSize(fontSize);
+                if (isBold) {
+                    doc.setFont(undefined, 'bold');
+                } else {
+                    doc.setFont(undefined, 'normal');
+                }
+                
+                const lines = doc.splitTextToSize(text, maxWidth);
+                
+                for (let i = 0; i < lines.length; i++) {
+                    if (yPosition > pageHeight - marginBottom) {
+                        doc.addPage();
+                        yPosition = 20;
+                    }
+                    doc.text(lines[i], 20, yPosition);
+                    yPosition += lineHeight;
+                }
+                yPosition += 3; // Extra spacing after text block
+            }
+            
+            // Title
+            addText('Case Study Activities: Blizzard Entertainment', 16, true);
+            addText('Student Responses', 14, true);
+            yPosition += 5;
+            
+            // Activity 1: Quiz Results
+            addText('Activity 1: Knowledge Check', 14, true);
+            
+            const formData = new FormData(quizForm);
+            const questions = [
+                { num: 1, text: 'Which game series was NOT mentioned in the overview text?', options: ['a) Overwatch', 'b) Call of Duty', 'c) Diablo', 'd) StarCraft'] },
+                { num: 2, text: 'According to the text, what has Blizzard made efforts to do?', options: ['a) Focus only on simulation games', 'b) Incorporate perspectives of diverse groups', 'c) Acquire other game studios', 'd) Publish games only for PC'] },
+                { num: 3, text: 'Which group was NOT explicitly listed in the text?', options: ['a) People with disabilities', 'b) People of different socioeconomic backgrounds', 'c) Aboriginal and Torres Strait Islander peoples', 'd) Culturally and linguistically diverse people'] },
+                { num: 4, text: 'What kinds of content are most prominent on the blizzard.com homepage?', options: ['a) Job postings and company culture blogs', 'b) News about upcoming games, updates, and events', 'c) Detailed reports on corporate social responsibility', 'd) Player support forums and technical help'] }
+            ];
+            
+            questions.forEach(q => {
+                const answer = formData.get(`q${q.num}`) || 'Not answered';
+                addText(`Question ${q.num}: ${q.text}`, 11, false);
+                addText(`Your answer: ${answer.toUpperCase()}`, 10, false);
+                yPosition += 2;
+            });
+            
+            yPosition += 5;
+            
+            // Activity 2: Web Scavenger Hunt
+            addText('Activity 2: Web Scavenger Hunt', 14, true);
+            const scavengerText = document.getElementById('scavenger-hunt').value || 'No response provided.';
+            addText('Research Findings:', 11, true);
+            addText(scavengerText, 10, false);
+            yPosition += 5;
+            
+            // Activity 3: Critical Thinking
+            addText('Activity 3: Critical Thinking', 14, true);
+            const reflectionText = document.getElementById('reflection').value || 'No response provided.';
+            addText('Reflection Response:', 11, true);
+            addText(reflectionText, 10, false);
+            
+            // Add footer with date
+            const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+            yPosition += 10;
+            if (yPosition > pageHeight - marginBottom) {
+                doc.addPage();
+                yPosition = 20;
+            }
+            doc.setFontSize(9);
+            doc.setFont(undefined, 'italic');
+            doc.text(`Generated on: ${today}`, 20, yPosition);
+            
+            // Save the PDF
+            doc.save('Blizzard_Case_Study_Responses.pdf');
+        });
     </script>
 
 </body>
